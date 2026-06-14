@@ -23,8 +23,12 @@ export async function proxy(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Protect /admin/dashboard
-  if (request.nextUrl.pathname.startsWith('/admin/dashboard') && !session) {
+  // Protect /admin/dashboard and /admin/reset-password
+  const pathname = request.nextUrl.pathname
+  if (
+    (pathname.startsWith('/admin/dashboard') || pathname.startsWith('/admin/reset-password')) &&
+    !session
+  ) {
     return NextResponse.redirect(new URL('/admin/login', request.url))
   }
 
@@ -32,5 +36,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/dashboard/:path*'],
+  matcher: ['/admin/dashboard/:path*', '/admin/reset-password/:path*'],
 }
