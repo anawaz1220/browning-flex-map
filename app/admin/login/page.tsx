@@ -52,9 +52,13 @@ export default function AdminLogin() {
       redirectTo: 'https://browning-flex-map.vercel.app/auth/callback?next=/admin/reset-password',
     })
     if (error) {
-      setError(error.message)
+      if (error.message.toLowerCase().includes('rate limit') || error.message.toLowerCase().includes('too many')) {
+        setError('Too many reset attempts. Please wait 1 hour before trying again.')
+      } else {
+        setError('Could not send reset link. Please try again later.')
+      }
     } else {
-      setMsg('Reset link sent! Check your email inbox.')
+      setMsg('Reset link sent! Check your email inbox (including spam folder).')
     }
     setLoading(false)
   }
