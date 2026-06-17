@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import type L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { Unit, ToggleView } from '@/lib/types'
 
 interface LeafletMapProps {
