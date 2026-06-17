@@ -1,12 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { Unit, ToggleView } from '@/lib/types'
 import { DEFAULT_UNITS } from '@/lib/units-data'
-import SiteMap from '@/components/SiteMap'
-import ToggleSwitch from '@/components/ToggleSwitch'
 import UnitPopup from '@/components/UnitPopup'
+import ToggleSwitch from '@/components/ToggleSwitch'
+
+const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1a1a1a' }}>
+      <p className="text-sm animate-pulse" style={{ color: '#9ca3af', fontFamily: 'Merriweather, serif' }}>
+        Loading map…
+      </p>
+    </div>
+  ),
+})
 
 export default function Home() {
   const [units, setUnits] = useState<Unit[]>([])
@@ -23,16 +34,12 @@ export default function Home() {
         .order('unit_number')
 
       if (error || !data || data.length === 0) {
-        // Fallback to default units with generated IDs
-        setUnits(
-          DEFAULT_UNITS.map((u, i) => ({ ...u, id: `default-${i}` }))
-        )
+        setUnits(DEFAULT_UNITS.map((u, i) => ({ ...u, id: `default-${i}` })))
       } else {
         setUnits(data)
       }
       setLoading(false)
     }
-
     fetchUnits()
   }, [])
 
@@ -41,23 +48,37 @@ export default function Home() {
   ).length
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#f4efea' }}>
-      {/* Header */}
-      <header className="shadow-sm" style={{ backgroundColor: '#353434' }}>
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight" style={{ color: '#f4efea' }}>
-              Browning Flex Business Park
-            </h1>
-            <p className="text-xs mt-0.5" style={{ color: '#b5a99a' }}>
-              6650 Browning Dr, North Richland Hills, TX &nbsp;·&nbsp; Shallow Bay Flex
-            </p>
+    <div className="flex flex-col" style={{ height: '100dvh', overflow: 'hidden' }}>
+
+      {/* ── Minimal header ── */}
+      <header
+        className="flex items-center justify-between px-4 shrink-0"
+        style={{ backgroundColor: '#353434', height: '52px', zIndex: 1000 }}
+      >
+        {/* Left: branding */}
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-sm font-bold tracking-tight leading-none" style={{ color: '#f4efea' }}>
+            Browning Flex Business Park
+          </h1>
+          <span className="text-xs hidden sm:inline" style={{ color: '#7a6a5e' }}>
+            6650 Browning Dr · North Richland Hills, TX
+          </span>
+        </div>
+
+        {/* Right: stats + link */}
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-4 text-xs" style={{ color: '#b5a99a' }}>
+            <span>
+              <strong style={{ color: '#964d44' }}>{availableCount}</strong> / {units.length} Available
+            </span>
+            <span style={{ color: '#5a4a40' }}>|</span>
+            <span>1,250 SF · 18&apos; Clear · 3-Phase</span>
           </div>
           <a
             href="https://www.peakflexspace.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-bold uppercase tracking-widest"
+            className="text-xs font-bold uppercase tracking-widest shrink-0"
             style={{ color: '#964d44' }}
           >
             PeakFLX ↗
@@ -65,97 +86,81 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Stats bar */}
-      <div className="border-b" style={{ backgroundColor: '#ede6de', borderColor: '#d5ccc4' }}>
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-6 text-sm">
-          <div>
-            <span className="font-bold" style={{ color: '#353434' }}>{units.length}</span>
-            <span className="ml-1" style={{ color: '#6b5f54' }}>Total Units</span>
-          </div>
-          <div>
-            <span className="font-bold" style={{ color: '#964d44' }}>{availableCount}</span>
-            <span className="ml-1" style={{ color: '#6b5f54' }}>Available</span>
-          </div>
-          <div>
-            <span className="font-bold" style={{ color: '#353434' }}>1,250 SF</span>
-            <span className="ml-1" style={{ color: '#6b5f54' }}>Per Unit</span>
-          </div>
-          <div>
-            <span className="font-bold" style={{ color: '#353434' }}>18&apos;</span>
-            <span className="ml-1" style={{ color: '#6b5f54' }}>Clear Height</span>
-          </div>
-          <div>
-            <span className="font-bold" style={{ color: '#353434' }}>3-Phase</span>
-            <span className="ml-1" style={{ color: '#6b5f54' }}>Power</span>
-          </div>
-        </div>
-      </div>
+      {/* ── Map area ── */}
+      <main className="relative flex-1 overflow-hidden">
 
-      {/* Main content */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
-
-        {/* Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <h2 className="text-base font-bold" style={{ color: '#353434' }}>
-            Interactive Site Map
-          </h2>
-          <ToggleSwitch view={toggleView} onChange={setToggleView} />
-        </div>
-
-        {/* Map */}
+        {/* Leaflet map (fills entire remaining height) */}
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-sm animate-pulse" style={{ color: '#9ca3af' }}>Loading map…</div>
+          <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#1a1a1a' }}>
+            <p className="text-sm animate-pulse" style={{ color: '#9ca3af', fontFamily: 'Merriweather, serif' }}>
+              Loading…
+            </p>
           </div>
         ) : (
-          <div className="rounded-2xl overflow-hidden shadow-md border" style={{ borderColor: '#d5ccc4' }}>
-            <SiteMap
-              units={units}
-              toggleView={toggleView}
-              selectedUnit={selectedUnit}
-              onUnitClick={setSelectedUnit}
-            />
-          </div>
+          <LeafletMap
+            units={units}
+            toggleView={toggleView}
+            onUnitClick={setSelectedUnit}
+          />
         )}
 
-        {/* Help text */}
-        <p className="text-center text-xs mt-3" style={{ color: '#9ca3af' }}>
-          Click any unit to view details and submit an inquiry
-        </p>
+        {/* ── Toggle overlay (bottom-center) ── */}
+        <div
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]"
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div
+            className="rounded-2xl shadow-lg px-3 py-2"
+            style={{ backgroundColor: 'rgba(53,52,52,0.88)', backdropFilter: 'blur(6px)' }}
+          >
+            <ToggleSwitch view={toggleView} onChange={setToggleView} dark />
+          </div>
+        </div>
 
-        {/* Property specs */}
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* ── Legend overlay (bottom-left) ── */}
+        <div
+          className="absolute bottom-6 left-3 z-[1000] rounded-xl shadow-lg px-3 py-2 hidden sm:block"
+          style={{ backgroundColor: 'rgba(53,52,52,0.82)', backdropFilter: 'blur(6px)' }}
+        >
+          <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: '#7a6a5e' }}>Legend</p>
           {[
-            { label: 'Configuration', value: 'Front-Load Shallow Bay' },
-            { label: 'Garage Doors', value: "12\u2019 \u00d7 14\u2019 Grade-Level" },
-            { label: 'Office Finish', value: '\u00b120% Office / 80% Warehouse' },
-            { label: 'Power', value: '3-Phase Available' },
-            { label: 'Clear Height', value: "18\u2019" },
-            { label: 'Availability', value: 'For Sale & For Lease' },
-          ].map(s => (
-            <div
-              key={s.label}
-              className="rounded-xl p-4"
-              style={{ backgroundColor: '#ede6de' }}
-            >
-              <p className="text-xs uppercase tracking-wide font-bold" style={{ color: '#964d44' }}>{s.label}</p>
-              <p className="text-sm mt-1 font-bold" style={{ color: '#353434' }}>{s.value}</p>
+            { color: '#964d44', label: 'Available' },
+            { color: '#4a7c99', label: 'For Lease Only' },
+            { color: '#d97706', label: 'Pending' },
+            { color: '#9ca3af', label: 'Sold / Leased' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-xs" style={{ color: '#d6cfc7' }}>{label}</span>
             </div>
           ))}
+          <div className="border-t mt-1.5 pt-1.5" style={{ borderColor: '#4a3f38' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: '#6b7280', opacity: 0.5 }} />
+              <span className="text-xs" style={{ color: '#d6cfc7' }}>Parking / Drive Aisle</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: '#d6cfc7', opacity: 0.7 }} />
+              <span className="text-xs" style={{ color: '#d6cfc7' }}>Sidewalk</span>
+            </div>
+          </div>
         </div>
+
+        {/* ── Help hint (top-left) ── */}
+        <div
+          className="absolute top-3 left-3 z-[1000] rounded-lg px-3 py-1.5"
+          style={{ backgroundColor: 'rgba(53,52,52,0.70)', backdropFilter: 'blur(4px)' }}
+        >
+          <p className="text-xs" style={{ color: '#b5a99a' }}>
+            Click a unit to view details & inquire
+          </p>
+        </div>
+
       </main>
 
-      {/* Footer */}
-      <footer className="mt-8 py-4 text-center text-xs border-t" style={{ borderColor: '#d5ccc4', color: '#9ca3af' }}>
-        &copy; {new Date().getFullYear()} PeakFLX &mdash; Browning Flex Business Park
-      </footer>
-
-      {/* Unit popup */}
+      {/* Unit popup (fixed overlay) */}
       {selectedUnit && (
-        <UnitPopup
-          unit={selectedUnit}
-          onClose={() => setSelectedUnit(null)}
-        />
+        <UnitPopup unit={selectedUnit} onClose={() => setSelectedUnit(null)} />
       )}
     </div>
   )
